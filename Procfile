@@ -1,1 +1,1 @@
-web: python ai_backend/app.py
+web: cd Backend && python app.py
