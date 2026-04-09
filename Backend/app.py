@@ -117,7 +117,7 @@ def serve_processing():
 @app.route("/viewer.html")
 def serve_viewer():
     """Serve the 3D model viewer HTML from front-end folder."""
-    with open(os.path.join(os.path.dirname(__file__), "..", "front-end", "viewer.html"), "r", encoding="utf-8") as f:
+    with open(os.path.join(os.path.dirname(__file__), "..", "Frontend", "viewer.html"), "r", encoding="utf-8") as f:
         response = Response(f.read(), mimetype='text/html')
         response.headers['Access-Control-Allow-Origin'] = '*'
         return response
