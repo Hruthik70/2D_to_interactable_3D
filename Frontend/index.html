@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2D → 3D AI Depth Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&display=swap" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="mesh-bg"></div>
+
+  <div class="page">
+    <header>
+      <h1>AI DEPTH ENGINE</h1>
+      <p>Instant 2D to 3D Spatial Generation</p>
+    </header>
+
+    <main>
+      <div class="card-wrapper">
+        <img src="avacdoooo.png"                          class="character boy" alt="character" />
+        <img src="fox-transparent.png-removebg-preview.png" class="character fox" alt="fox" />
+
+        <div class="card">
+          <!-- Upload drop zone -->
+          <div class="upload-area" id="uploadArea">
+            <span class="upload-icon">📂</span>
+            <p>Drop your image here or click to browse</p>
+            <span class="upload-hint">JPG, PNG, WEBP, BMP — max 16 MB</span>
+            <input type="file" id="fileInput" accept="image/*" />
+            <button type="button" class="btn btn-sm" id="selectBtn">Select Image</button>
+          </div>
+
+          <!-- Preview -->
+          <div class="preview-box" id="previewBox">
+            <img id="previewImg" class="preview-img" alt="Preview" />
+          </div>
+
+          <!-- Action button -->
+          <button type="button" class="btn" id="generateBtn" disabled>
+            Generate 3D Model
+          </button>
+        </div>
+      </div>
+
+      <!-- Demo video -->
+      <div class="demo-section">
+        <h2>HOW IT WORKS</h2>
+        <div class="video-container">
+          <iframe
+            src="https://www.youtube.com/embed/PjG8Z78X6Sg?autoplay=1&mute=1&loop=1&playlist=PjG8Z78X6Sg"
+            title="2D to 3D Depth Mapping Demo"
+            frameborder="0"
+            allow="autoplay; encrypted-media"
+            allowfullscreen>
+          </iframe>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const fileInput  = document.getElementById("fileInput");
+    const selectBtn  = document.getElementById("selectBtn");
+    const uploadArea = document.getElementById("uploadArea");
+    const previewBox = document.getElementById("previewBox");
+    const previewImg = document.getElementById("previewImg");
+    const generateBtn = document.getElementById("generateBtn");
+
+    // Open file picker
+    selectBtn.onclick = () => fileInput.click();
+    uploadArea.addEventListener("click", (e) => {
+      if (e.target === selectBtn) return;
+      fileInput.click();
+    });
+
+    // Drag-and-drop support
+    uploadArea.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      uploadArea.classList.add("drag-over");
+    });
+    uploadArea.addEventListener("dragleave", () => uploadArea.classList.remove("drag-over"));
+    uploadArea.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove("drag-over");
+      const file = e.dataTransfer.files[0];
+      if (file) loadPreview(file);
+    });
+
+    // File input change
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) loadPreview(file);
+    };
+
+    function loadPreview(file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        previewImg.src = ev.target.result;
+        previewBox.style.display = "block";
+        generateBtn.disabled = false;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // On generate: store dataURL + original filename type, redirect
+    generateBtn.onclick = () => {
+      localStorage.setItem("selectedFileDataURL", previewImg.src);
+      // Store extension so processing.html knows the mime
+      const ext = (fileInput.files[0]?.name || "image.jpg").split(".").pop().toLowerCase();
+      localStorage.setItem("selectedFileExt", ext);
+      window.location.href = "processing.html";
+    };
+  </script>
+</body>
+</html>

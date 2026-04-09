@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Model Viewer - Fixed</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%); color: white; font-family: 'Inter', sans-serif; overflow: hidden; }
+    #canvas { width: 100%; height: 100vh; display: block; }
+    .ui-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; }
+    .header { position: absolute; top: 20px; left: 20px; right: 20px; padding: 20px; background: rgba(15, 15, 30, 0.8); border: 1px solid rgba(134, 239, 172, 0.3); border-radius: 12px; backdrop-filter: blur(10px); pointer-events: auto; z-index: 100; }
+    .header h1 { font-size: 18px; margin-bottom: 8px; color: #86efac; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+    .header p { font-size: 12px; color: #a0a0a0; letter-spacing: 1px; }
+    .controls { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(15, 15, 30, 0.9); border: 1px solid rgba(134, 239, 172, 0.3); border-radius: 12px; padding: 20px; backdrop-filter: blur(10px); pointer-events: auto; display: flex; gap: 15px; align-items: center; z-index: 100; }
+    .control-group { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #a0a0a0; }
+    button { background: linear-gradient(135deg, #86efac 0%, #4ade80 100%); border: none; color: #0f0f1e; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 12px; letter-spacing: 1px; transition: all 0.3s ease; pointer-events: auto; }
+    button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(134, 239, 172, 0.3); }
+    .back-button { position: absolute; top: 30px; right: 30px; background: rgba(15, 15, 30, 0.8); border: 1px solid rgba(134, 239, 172, 0.3); color: #86efac; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 12px; pointer-events: auto; z-index: 100; }
+    .back-button:hover { background: rgba(134, 239, 172, 0.1); }
+    .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(15, 15, 30, 0.95); border: 1px solid rgba(134, 239, 172, 0.3); border-radius: 12px; padding: 40px; text-align: center; pointer-events: auto; z-index: 200; }
+    .spinner { border: 3px solid rgba(134, 239, 172, 0.2); border-top: 3px solid #86efac; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .error { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255, 107, 107, 0.1); border: 1px solid rgba(255, 107, 107, 0.5); border-radius: 12px; padding: 40px; text-align: center; pointer-events: auto; z-index: 200; max-width: 500px; }
+    .error h2 { color: #ff6b6b; margin-bottom: 10px; }
+    .error p { color: #a0a0a0; font-size: 14px; margin-bottom: 20px; }
+    .stats { position: absolute; top: 120px; right: 30px; background: rgba(15, 15, 30, 0.8); border: 1px solid rgba(134, 239, 172, 0.3); border-radius: 12px; padding: 15px; font-size: 11px; color: #a0a0a0; pointer-events: auto; z-index: 100; min-width: 200px; }
+    .stats div { margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .stat-label { color: #86efac; font-weight: 600; }
+    .stat-value { color: #a0a0a0; margin-left: 10px; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Loading 3D model...</p>
+  </div>
+
+  <div id="error" class="error" style="display: none;">
+    <h2>Failed to Load Model</h2>
+    <p id="errorMessage"></p>
+    <button onclick="window.location.href='../front-end/index.html'">← Back to Upload</button>
+  </div>
+
+  <div class="ui-overlay">
+    <div class="header">
+      <h1>🎨 3D MODEL VIEWER</h1>
+      <p>Drag to rotate • Scroll to zoom</p>
+    </div>
+
+    <button class="back-button" onclick="window.location.href='../front-end/index.html'">← Back</button>
+
+    <div class="stats">
+      <div><span class="stat-label">FPS:</span><span class="stat-value" id="fps">60</span></div>
+      <div><span class="stat-label">Triangles:</span><span class="stat-value" id="triangles">0</span></div>
+      <div><span class="stat-label">Draw Calls:</span><span class="stat-value" id="drawcalls">0</span></div>
+      <div><span class="stat-label">Memory:</span><span class="stat-value" id="memory">0 MB</span></div>
+    </div>
+
+    <div class="controls">
+      <div class="control-group">
+        <label>💡 Lighting:</label>
+        <button id="lightToggle">Toggle</button>
+      </div>
+      <div class="control-group">
+        <label>📷 View:</label>
+        <button id="resetView">Reset</button>
+      </div>
+      <div class="control-group">
+        <label>⬇️ Export:</label>
+        <button id="downloadBtn">Download GLB</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Use jsDelivr CDN for better reliability -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.126.1/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.126.1/examples/js/loaders/GLTFLoader.js"></script>
+  <script>
+    // Check if libraries loaded with timeout
+    let librariesReady = false;
+    let checkAttempts = 0;
+    
+    function checkLibraries() {
+      checkAttempts++;
+      if (typeof THREE !== 'undefined' && typeof THREE.GLTFLoader !== 'undefined') {
+        librariesReady = true;
+        initViewer();
+        return;
+      }
+      
+      if (checkAttempts < 10) {
+        setTimeout(checkLibraries, 200);
+      } else {
+        showError('Failed to load 3D libraries. Please check your internet connection and refresh the page.');
+      }
+    }
+    
+    function showError(message) {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('errorMessage').textContent = message;
+    }
+    
+    function initViewer() {
+      console.log('✅ Three.js + GLTFLoader ready, version:', THREE.REVISION);
+
+      // ── Scene Setup ────────────────────────────────────────────────
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0f0f1e);
+
+      const canvas = document.getElementById("canvas");
+      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+      camera.position.set(0, 2, 5);
+
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1;
+
+      // ── Lighting ───────────────────────────────────────────────────
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(5, 10, 5);
+      scene.add(directionalLight);
+
+      const pointLight = new THREE.PointLight(0x86efac, 0.5);
+      pointLight.position.set(-5, 3, 5);
+      scene.add(pointLight);
+
+      let lightingEnabled = true;
+
+      // ── Mouse Controls ─────────────────────────────────────────────
+      let mouseDown = false;
+      let mouseX = 0, mouseY = 0;
+      let rotationX = 0, rotationY = 0;
+
+      canvas.addEventListener('mousedown', (e) => { mouseDown = true; mouseX = e.clientX; mouseY = e.clientY; });
+      canvas.addEventListener('mouseup', () => { mouseDown = false; });
+      canvas.addEventListener('mousemove', (e) => {
+        if (mouseDown) {
+          rotationY += (e.clientX - mouseX) * 0.01;
+          rotationX += (e.clientY - mouseY) * 0.01;
+          mouseX = e.clientX; mouseY = e.clientY;
+        }
+      });
+
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        camera.position.z += e.deltaY * 0.01;
+        camera.position.z = Math.max(0.1, Math.min(50, camera.position.z));
+      }, { passive: false });
+
+      document.getElementById("lightToggle").onclick = () => {
+        lightingEnabled = !lightingEnabled;
+        ambientLight.intensity = lightingEnabled ? 0.7 : 0.3;
+        directionalLight.intensity = lightingEnabled ? 0.8 : 0.4;
+        pointLight.intensity = lightingEnabled ? 0.5 : 0.1;
+      };
+
+      let model = null;
+      const resetView = () => {
+        if (model) {
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const fov = camera.fov * (Math.PI / 180);
+          let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5;
+          camera.position.set(0, size.y / 2, cameraZ);
+          rotationX = 0; rotationY = 0;
+        } else {
+          camera.position.set(0, 2, 5);
+        }
+      };
+      document.getElementById("resetView").onclick = resetView;
+
+      // ── Load GLB Model ─────────────────────────────────────────────
+      const params = new URLSearchParams(window.location.search);
+      const modelFilename = params.get("model");
+
+      if (!modelFilename) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("error").style.display = "block";
+        document.getElementById("errorMessage").innerText = "No model specified (?model=filename.glb)";
+        return;
+      }
+
+      document.getElementById("loading").querySelector("p").innerText = "Loading model...";
+
+      const loader = new THREE.GLTFLoader();
+      const modelPath = `http://localhost:5000/outputs/${encodeURIComponent(modelFilename)}`;
+      console.log("🔄 Loading GLB from:", modelPath);
+
+      loader.load(
+        modelPath,
+        (gltf) => {
+          model = gltf.scene;
+          scene.add(model);
+          console.log("✅ Model loaded!", model);
+          document.getElementById("loading").style.display = "none";
+
+          model.traverse((node) => {
+            if (node.isMesh) {
+              node.castShadow = true;
+              node.receiveShadow = true;
+            }
+          });
+
+          resetView();
+
+          document.getElementById("downloadBtn").onclick = () => {
+            const link = document.createElement("a");
+            link.href = modelPath;
+            link.download = modelFilename;
+            link.click();
+          };
+        },
+        (progress) => {
+          const percent = ((progress.loaded / progress.total) * 100).toFixed(0);
+          document.querySelector(".loading p").innerText = `Loading model: ${percent}%`;
+        },
+        (error) => {
+          console.error("❌ GLB error:", error);
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("error").style.display = "block";
+          document.getElementById("errorMessage").innerText = `Failed to load ${modelFilename}:\n${error.message || error.statusText || 'Network/Parse error'}\n\nTry: curl http://localhost:5000/outputs/${modelFilename}`;
+        }
+      );
+
+      // ── Animation Loop ────────────────────────────────────────────
+      let frameCount = 0;
+      let lastTime = performance.now();
+      let prevTriangles = 0;
+
+      function animate() {
+        requestAnimationFrame(animate);
+
+        if (model) {
+          model.rotation.x = rotationX;
+          model.rotation.y = rotationY;
+        }
+
+        frameCount++;
+        const now = performance.now();
+        if (now > lastTime + 1000) {
+          document.getElementById("fps").textContent = frameCount;
+          frameCount = 0;
+          lastTime = now;
+        }
+
+        if (model && prevTriangles !== (prevTriangles = model.children.reduce((sum, child) => {
+          let triangles = 0;
+          child.traverse((node) => {
+            if (node.isMesh && node.geometry?.index) triangles += node.geometry.index.count / 3;
+          });
+          return sum + triangles;
+        }, 0))) {
+          document.getElementById("triangles").textContent = prevTriangles.toLocaleString();
+        }
+
+        renderer.info.autoReset = false;
+        renderer.render(scene, camera);
+        document.getElementById("drawcalls").textContent = renderer.info.render.calls;
+
+        if (performance.memory) {
+          const used = (performance.memory.usedJSHeapSize / 1048576).toFixed(1);
+          document.getElementById("memory").textContent = `${used} MB`;
+        }
+      }
+
+      // Resize
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      animate();
+      resetView();
+    }
+
+    // Start checking for libraries when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', checkLibraries);
+    } else {
+      checkLibraries();
+    }
+  </script>
+</body>
+</html>
