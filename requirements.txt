@@ -1,0 +1,11 @@
+flask>=3.0.0
+flask-cors>=4.0.0
+werkzeug>=3.0.0
+torch>=2.2.0
+torchvision>=0.17.0
+opencv-python-headless>=4.9.0
+Pillow>=10.2.0
+numpy>=1.26.0
+timm>=0.9.16          # required by MiDaS hub model
+requests>=2.31.0
+python-dotenv>=1.0.0
