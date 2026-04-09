@@ -5,7 +5,7 @@ from PIL import Image
 
 
 def load_model():
-    """Load MiDaS model and transforms. Call once at startup."""
+    """Load MiDaS model, and transforms. Call once at startup."""
     model_type = "MiDaS_small"
 
     model = torch.hub.load("intel-isl/MiDaS", model_type, skip_validation=True)
